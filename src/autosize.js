@@ -25,6 +25,7 @@ const map = (typeof Map === "function") ? new Map() : (function () {
 	}
 })();
 
+//创建自定义事件
 let createEvent = (name)=> new Event(name, {bubbles: true});
 try {
 	new Event('test');
@@ -37,19 +38,23 @@ try {
 	};
 }
 
-function assign(ta) {
+/**
+ * 
+ * @param TEXTAREA ta 
+ */
+function assign(ta) { 
 	if (!ta || !ta.nodeName || ta.nodeName !== 'TEXTAREA' || map.has(ta)) return;
 
-	let heightOffset = null;
-	let clientWidth = null;
-	let cachedHeight = null;
+	let heightOffset = null; // ta 的应用高度
+	let clientWidth = null; // ta 的可视宽度
+	let cachedHeight = null; // 上次高度
 
 	function init() {
-		const style = window.getComputedStyle(ta, null);
+		const style = window.getComputedStyle(ta, null);//获取当前活跃的css属性
 
-		if (style.resize === 'vertical') {
+		if (style.resize === 'vertical') { // 垂直方向可控
 			ta.style.resize = 'none';
-		} else if (style.resize === 'both') {
+		} else if (style.resize === 'both') { // 垂直水平方向可控
 			ta.style.resize = 'horizontal';
 		}
 
@@ -63,14 +68,17 @@ function assign(ta) {
 			heightOffset = 0;
 		}
 
-		update();
+		update(); //修改高度开始
 	}
 
 	function changeOverflow(value) {
-		{
+		{//作用域
+			// 兼容 textarea 不解内容已经修改，通过强制修改样式，使textarea重绘，生效
 			// Chrome/Safari-specific fix:
 			// When the textarea y-overflow is hidden, Chrome/Safari do not reflow the text to account for the space
+			// 当文本区域Y溢出被隐藏时，chrome/safari不会重新显示文本以说明空间。
 			// made available by removing the scrollbar. The following forces the necessary text reflow.
+			// 通过删除滚动条可用。下面强制必要的文本回流。
 			const width = ta.style.width;
 			ta.style.width = '0px';
 			// Force reflow:
@@ -83,6 +91,11 @@ function assign(ta) {
 		ta.style.overflowY = value;
 	}
 
+
+	/**
+	 * 收集 带scrollTop的parentNodes
+	 * @param {*} el 
+	 */
 	function getParentOverflows(el) {
 		const arr = [];
 
@@ -109,12 +122,12 @@ function assign(ta) {
 		const docTop = document.documentElement && document.documentElement.scrollTop; // Needed for Mobile IE (ticket #240)
 
 		ta.style.height = '';
-		ta.style.height = (ta.scrollHeight+heightOffset)+'px';
+		ta.style.height = (ta.scrollHeight+heightOffset)+'px';//设置当前 scrollHeight 高度
 
 		// used to check if an update is actually necessary on window.resize
 		clientWidth = ta.clientWidth;
 
-		// prevents scroll-position jumping
+		// 防止滚动坐标跳跃 这个小优化让滚动条不动
 		overflows.forEach(el => {
 			el.node.scrollTop = el.scrollTop
 		});
@@ -127,14 +140,17 @@ function assign(ta) {
 	function update() {
 		resize();
 
-		const styleHeight = Math.round(parseFloat(ta.style.height));
-		const computed = window.getComputedStyle(ta, null);
+		const styleHeight = Math.round(parseFloat(ta.style.height));//获取当前style 高度
+		const computed = window.getComputedStyle(ta, null);//获取当前活跃 style
 
 		// Using offsetHeight as a replacement for computed.height in IE, because IE does not account use of border-box
+		// 用offsetHeight代替computed。高度在IE中，因为IE不计入边框使用
 		var actualHeight = computed.boxSizing === 'content-box' ? Math.round(parseFloat(computed.height)) : ta.offsetHeight;
 
-		// The actual height not matching the style height (set via the resize method) indicates that 
-		// the max-height has been exceeded, in which case the overflow should be allowed.
+		// The actual height not matching the style height (set via the resize method) indicates that  
+		// 实际高度不匹配样式高度(通过resize方法设置)表明
+		// the max-height has been exceeded, in which case the overflow should be allowed. 
+		// 已经超过max-height，在这种情况下应该允许溢出。
 		if (actualHeight < styleHeight) {
 			if (computed.overflowY === 'hidden') {
 				changeOverflow('scroll');
@@ -142,7 +158,8 @@ function assign(ta) {
 				actualHeight = computed.boxSizing === 'content-box' ? Math.round(parseFloat(window.getComputedStyle(ta, null).height)) : ta.offsetHeight;
 			}
 		} else {
-			// Normally keep overflow set to hidden, to avoid flash of scrollbar as the textarea expands.
+			// Normally keep overflow set to hidden, to avoid flash of scrollbar as the textarea expands. 
+			// 通常将溢出设置为隐藏，以避免滚动条在文本区域扩展时闪烁。
 			if (computed.overflowY !== 'hidden') {
 				changeOverflow('hidden');
 				resize();
@@ -168,6 +185,8 @@ function assign(ta) {
 		}
 	};
 
+
+	// 清除方法
 	const destroy = (style => {
 		window.removeEventListener('resize', pageResize, false);
 		ta.removeEventListener('input', update, false);
@@ -188,7 +207,7 @@ function assign(ta) {
 		wordWrap: ta.style.wordWrap,
 	});
 
-	ta.addEventListener('autosize:destroy', destroy, false);
+	ta.addEventListener('autosize:destroy', destroy, false);//订阅，用户确认执行 destroy() 等同 .destroy()
 
 	// IE9 does not fire onpropertychange or oninput for deletions,
 	// so binding to onkeyup to catch most of those events.
@@ -199,7 +218,8 @@ function assign(ta) {
 
 	window.addEventListener('resize', pageResize, false);
 	ta.addEventListener('input', update, false);
-	ta.addEventListener('autosize:update', update, false);
+	ta.addEventListener('autosize:update', update, false); //订阅，用户确认执行 update() 等同 .update()
+
 	ta.style.overflowX = 'hidden';
 	ta.style.wordWrap = 'break-word';
 
@@ -208,7 +228,7 @@ function assign(ta) {
 		update,
 	});
 
-	init();
+	init(); //主函数，初始化
 }
 
 function destroy(ta) {
@@ -233,19 +253,19 @@ if (typeof window === 'undefined' || typeof window.getComputedStyle !== 'functio
 	autosize.destroy = el => el;
 	autosize.update = el => el;
 } else {
-	autosize = (el, options) => {
+	autosize = (el, options) => {//主入口
 		if (el) {
 			Array.prototype.forEach.call(el.length ? el : [el], x => assign(x, options));
 		}
 		return el;
 	};
-	autosize.destroy = el => {
+	autosize.destroy = el => {//方法1
 		if (el) {
 			Array.prototype.forEach.call(el.length ? el : [el], destroy);
 		}
 		return el;
 	};
-	autosize.update = el => {
+	autosize.update = el => {//方法2
 		if (el) {
 			Array.prototype.forEach.call(el.length ? el : [el], update);
 		}
